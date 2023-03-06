@@ -1,4 +1,5 @@
-import { Column, Entity, Generated, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Generated, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Admin } from './admin.entity';
 @Entity('Employees')
 export class Employee {
   @PrimaryGeneratedColumn()
@@ -37,4 +38,9 @@ export class Employee {
 
   @Column()
   E_ModifiedAt: Date;
+
+  // Employee has one Admin
+  @ManyToOne(() => Admin, (admin) => admin.employees)
+  @JoinColumn({ name: 'FK_AdminId' })
+  admin: Admin;
 }

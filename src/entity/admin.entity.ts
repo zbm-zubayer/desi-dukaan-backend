@@ -1,4 +1,5 @@
-import { Column, Entity, Generated, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Generated, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Employee } from './employee.entity';
 @Entity('Admins')
 export class Admin {
   @PrimaryGeneratedColumn()
@@ -37,4 +38,8 @@ export class Admin {
 
   @Column()
   A_ModifiedAt: Date;
+
+  // Admin has many Employees
+  @OneToMany(() => Employee, (employee) => employee.admin)
+  employees: Employee[];
 }

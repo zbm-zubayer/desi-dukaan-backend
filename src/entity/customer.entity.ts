@@ -1,4 +1,7 @@
-import { Column, Entity, Generated, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Generated, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { CustomerPayment } from './customerPayment.entity';
+import { Order } from './order.entity';
+import { Review } from './review.entity';
 @Entity('Customers')
 export class Customer {
   @PrimaryGeneratedColumn()
@@ -37,4 +40,16 @@ export class Customer {
 
   @Column()
   C_ModifiedAt: Date;
+
+  // Customer has many Orders
+  @OneToMany(() => Order, (order) => order.customer)
+  orders: Order[];
+
+  // Customer has many Reviews
+  @OneToMany(() => Review, (review) => review.customer)
+  reviews: Review[];
+
+  // Customer has many CustomerPayments
+  @OneToMany(() => CustomerPayment, (customerPayment) => customerPayment.customer)
+  customerPayments: CustomerPayment[];
 }

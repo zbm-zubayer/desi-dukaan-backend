@@ -1,4 +1,5 @@
-import { Column, Entity, Generated, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Generated, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Product } from './product.entity';
 @Entity('Sellers')
 export class Seller {
   @PrimaryGeneratedColumn()
@@ -46,4 +47,8 @@ export class Seller {
 
   @Column()
   S_ModifiedAt: Date;
+
+  // Seller has many Products
+  @OneToMany(() => Product, (product) => product.seller)
+  products: Product[];
 }
