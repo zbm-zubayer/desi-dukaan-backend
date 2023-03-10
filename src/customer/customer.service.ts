@@ -66,7 +66,7 @@ export class CustomerService {
   }
   // Customer Search Product
   searchProduct(name) {
-    return this.productRepo.findOneBy({ P_Name: name.q });
+    return this.productRepo.findBy({ P_Name: name.q });
   }
   // Customer View Cart
   async viewCart() {}
@@ -78,4 +78,10 @@ export class CustomerService {
   async viewOrderDetail() {}
   // Customer View Payment
   async viewPayment() {}
+
+  // Customer can a post review
+  async postReview() {}
+
+  // Customer can view all own reviews
+  async viewAllReview() {}
 }
