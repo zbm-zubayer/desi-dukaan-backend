@@ -1,10 +1,13 @@
+import { MailerService } from '@nestjs-modules/mailer';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Customer } from 'src/db/entity/customer.entity';
 import { Order } from 'src/db/entity/order.entity';
+import { OrderDetail } from 'src/db/entity/orderDetail.entity';
 import { Payment } from 'src/db/entity/payment.entity';
 import { Product } from 'src/db/entity/product.entity';
+import { Review } from 'src/db/entity/review.entity';
 import { Repository } from 'typeorm';
 
 @Injectable()
@@ -13,16 +16,42 @@ export class CustomerService {
     @InjectRepository(Customer) private customerRepo: Repository<Customer>,
     @InjectRepository(Product) private productRepo: Repository<Product>,
     @InjectRepository(Order) private orderRepo: Repository<Order>,
+    @InjectRepository(OrderDetail) private orderDetailRepo: Repository<OrderDetail>,
     @InjectRepository(Payment) private paymentRepo: Repository<Payment>,
+    @InjectRepository(Review) private reviewRepo: Repository<Review>,
+    private mailerService: MailerService,
   ) {}
   // Customer Register
   async registerAccount(customerRegisterDto) {
-    const salt = await bcrypt.genSalt();
-    const hashedPassword = await bcrypt.hash(customerRegisterDto.C_Password, salt);
-    customerRegisterDto.C_Password = hashedPassword;
-    customerRegisterDto.C_CreatedAt = new Date();
-    customerRegisterDto.C_ModifiedAt = new Date();
-    return await this.customerRepo.save(customerRegisterDto);
+    const dbCustomer = await this.customerRepo.findOneBy({ C_Email: customerRegisterDto.C_Email });
+    if (dbCustomer) {
+      return 'Email already exist';
+    } else {
+      const salt = await bcrypt.genSalt();
+      const hashedPassword = await bcrypt.hash(customerRegisterDto.C_Password, salt);
+      customerRegisterDto.C_Password = hashedPassword;
+      customerRegisterDto.C_CreatedAt = new Date();
+      customerRegisterDto.C_ModifiedAt = new Date();
+      const customer = await this.customerRepo.save(customerRegisterDto);
+      this.mailerService.sendMail({
+        to: customerRegisterDto.C_Email,
+        subject: 'Welcome to DesiDukaan',
+        text: `Hi, ${customerRegisterDto.C_Name}. Welcome to DesiDukaan.
+Please verify your email address by clicking on the link below.
+http://localhost:3000/customer/verify-email/?uid=${customerRegisterDto.C_Uuid}`,
+      });
+      return customer;
+    }
+  }
+  // Customer verify email
+  async verifyEmail(uuid) {
+    await this.customerRepo.update({ C_Uuid: uuid }, { C_Verified: true });
+    const verifiedUser = await this.customerRepo.findOneBy({ C_Uuid: uuid });
+    if (verifiedUser) {
+      return { message: 'Email verified successfully' };
+    } else {
+      return { message: 'Email verification failed' };
+    }
   }
   // Customer Profile
   async viewProfile(uuid) {
@@ -31,10 +60,6 @@ export class CustomerService {
   // Customer Update Profile
   async updateProfile(id, customerUpdateDto) {
     customerUpdateDto.C_ModifiedAt = new Date();
-    return await this.customerRepo.update(id, customerUpdateDto);
-  }
-  // Customer Update Profile Photo
-  async uploadProfilePhoto(id, customerUpdateDto) {
     return await this.customerRepo.update(id, customerUpdateDto);
   }
   // Customer Delete Account
@@ -55,7 +80,19 @@ export class CustomerService {
     }
   }
   // Customer Forgot Password
-  async forgotPassword() {}
+  async forgotPassword(customerForgotPassDto) {
+    const validCustomer = await this.customerRepo.findOneBy({ C_Email: customerForgotPassDto.C_Email });
+    if (validCustomer) {
+      const otp = Math.round(100000 + Math.random() * 900000);
+      return await this.mailerService.sendMail({
+        to: customerForgotPassDto.C_Email,
+        subject: 'OTP for Forgot Password',
+        text: `Hi, ${validCustomer.C_Name}. Your OTP is ${otp}`,
+      });
+    } else {
+      return 'Email not found';
+    }
+  }
 
   viewAllProduct() {
     return this.productRepo.find();
@@ -65,23 +102,53 @@ export class CustomerService {
     return this.productRepo.findOneBy({ P_Id: id });
   }
   // Customer Search Product
-  searchProduct(name) {
-    return this.productRepo.findBy({ P_Name: name.q });
+  searchProduct(query) {
+    return this.productRepo.findBy({ P_Name: query.k });
   }
   // Customer View Cart
   async viewCart() {}
-  // Customer View All Order
-  async viewAllOrder() {
-    return await this.orderRepo.find();
+
+  // Customer can create order
+  async createOrder(id, createOrderDto) {
+    createOrderDto.OrderCode = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    createOrderDto.OrderStatus = 'Pending';
+    createOrderDto.OrderPlacedDate = new Date();
+    createOrderDto.OrderDeliveredDate = new Date();
+    createOrderDto.OrderAmount = 0;
+    createOrderDto.customer = id;
+    const order = await this.orderRepo.save(createOrderDto);
+    for (let i = 0; i < createOrderDto.orderDetails.length; i++) {
+      createOrderDto.orderDetails[i].order = order;
+      const orderDetailAmount = createOrderDto.orderDetails[i].P_OrderQty * createOrderDto.orderDetails[i].P_OrderPrice;
+      createOrderDto.OrderAmount += orderDetailAmount;
+      await this.orderDetailRepo.save(createOrderDto.orderDetails[i]);
+    }
+    await this.orderRepo.update(order.OrderId, { OrderAmount: createOrderDto.OrderAmount });
+    return order;
   }
-  // Customer View Order Detail
-  async viewOrderDetail() {}
-  // Customer View Payment
-  async viewPayment() {}
+
+  // Customer can view all own order
+  async viewAllOrder(id) {
+    return await this.orderRepo.findBy({ customer: id });
+  }
+
+  // Customer can view own order details
+  async viewOrderDetail(orderCode) {
+    const orderId: any = (await this.orderRepo.findOneBy({ OrderCode: orderCode })).OrderId;
+    return await this.orderDetailRepo.findOneBy({ order: orderId });
+  }
+  // Customer can view payment options
+  async viewPayment() {
+    return await this.paymentRepo.find();
+  }
 
   // Customer can a post review
-  async postReview() {}
+  async postReview(id, query, createReviewDto) {
+    createReviewDto.customer = id;
+    createReviewDto.product = query.productId;
+    return await this.reviewRepo.save(createReviewDto);
+  }
 
   // Customer can view all own reviews
-  async viewAllReview() {}
+  async viewMyReviews(id: any) {}
 }

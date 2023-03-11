@@ -18,7 +18,10 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { saveUploadedFile } from 'src/helper/saveUploadedFile';
 import { CustomerService } from './customer.service';
 import { CustomerChangePassDto } from './dto/cChangePass.dto';
+import { CustomerForgotPassDto } from './dto/cForgotPass.dto';
 import { CustomerUpdateDto } from './dto/cProfileUpdate.dto';
+import { CreateOrderDto } from './dto/createOrder.dto';
+import { CreateReviewDto } from './dto/createReview.dto';
 import { CustomerRegisterDto } from './dto/cRegister.dto';
 
 @Controller('customer')
@@ -28,6 +31,10 @@ export class CustomerController {
   @Post('/register')
   registerAccount(@Body(ValidationPipe) customerRegisterDto: CustomerRegisterDto) {
     return this.customerService.registerAccount(customerRegisterDto);
+  }
+  @Get('/verify-email/')
+  verifyEmail(@Query('uid', ParseUUIDPipe) uuid) {
+    return this.customerService.verifyEmail(uuid);
   }
   @Get('/profile/:id')
   viewProfile(@Param('id', ParseUUIDPipe) uuid) {
@@ -58,8 +65,8 @@ export class CustomerController {
     return this.customerService.changePassword(id, customerChangePassDto);
   }
   @Post('/forgot-password')
-  forgotPassword() {
-    return this.customerService.forgotPassword();
+  forgotPassword(@Body(ValidationPipe) customerForgotPassDto: CustomerForgotPassDto) {
+    return this.customerService.forgotPassword(customerForgotPassDto);
   }
   @Get('/product')
   viewAllProduct() {
@@ -75,14 +82,35 @@ export class CustomerController {
   }
   @Get('/cart')
   viewCart() {}
-  @Get('/order')
-  viewAllOrder() {
-    return this.customerService.viewAllOrder();
+
+  @Post('/create-order/:id')
+  createOrder(@Param('id', ParseIntPipe) id: number, @Body(ValidationPipe) createOrderDto: CreateOrderDto) {
+    return this.customerService.createOrder(id, createOrderDto);
   }
   @Get('/order/:id')
-  viewOrderDetail() {
-    return this.customerService.viewOrderDetail();
+  viewAllOrder(@Param('id') id: number) {
+    return this.customerService.viewAllOrder(id);
+  }
+  @Get('/order/')
+  viewOrderDetail(@Query() orderCode: string) {
+    return this.customerService.viewOrderDetail(orderCode);
   }
   @Get('/payment')
-  viewPayment() {}
+  viewPayment() {
+    return this.customerService.viewPayment();
+  }
+
+  @Post('/:id/review/')
+  postReview(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() productId: number,
+    @Body(ValidationPipe) createReviewDto: CreateReviewDto,
+  ) {
+    return this.customerService.postReview(id, productId, createReviewDto);
+  }
+
+  @Get('/myReviews/:id')
+  viewMyReviews(@Param('id', ParseIntPipe) id: number) {
+    return this.customerService.viewMyReviews(id);
+  }
 }
