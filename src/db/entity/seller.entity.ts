@@ -43,6 +43,12 @@ export class Seller {
   S_Status: string;
 
   @Column()
+  Role: string;
+
+  @Column({ nullable: true })
+  S_Verified: boolean;
+
+  @Column()
   S_CreatedAt: Date;
 
   @Column()

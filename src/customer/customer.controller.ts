@@ -10,6 +10,8 @@ import {
   Post,
   Put,
   Query,
+  Session,
+  UnauthorizedException,
   UploadedFile,
   UseInterceptors,
   ValidationPipe,
@@ -17,8 +19,10 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { saveUploadedFile } from 'src/helper/saveUploadedFile';
 import { CustomerService } from './customer.service';
+import { CustomerAddPaymentDto } from './dto/cAddPayment.dto';
 import { CustomerChangePassDto } from './dto/cChangePass.dto';
 import { CustomerForgotPassDto } from './dto/cForgotPass.dto';
+import { CustomerLoginDto } from './dto/cLogin.dto';
 import { CustomerUpdateDto } from './dto/cProfileUpdate.dto';
 import { CreateOrderDto } from './dto/createOrder.dto';
 import { CreateReviewDto } from './dto/createReview.dto';
@@ -64,10 +68,13 @@ export class CustomerController {
   changePassword(@Param('id', ParseIntPipe) id: number, @Body(ValidationPipe) customerChangePassDto: CustomerChangePassDto) {
     return this.customerService.changePassword(id, customerChangePassDto);
   }
+
   @Post('/forgot-password')
   forgotPassword(@Body(ValidationPipe) customerForgotPassDto: CustomerForgotPassDto) {
     return this.customerService.forgotPassword(customerForgotPassDto);
   }
+  @Post('/verify-otp')
+  async verifyOtp(@Body(ValidationPipe) customerForgotPassDto: CustomerForgotPassDto) {}
   @Get('/product')
   viewAllProduct() {
     return this.customerService.viewAllProduct();
@@ -80,8 +87,21 @@ export class CustomerController {
   searchProduct(@Query() query) {
     return this.customerService.searchProduct(query);
   }
+  @Get('/add-to-cart/')
+  async addToCart(@Session() session, @Query() query) {
+    const isValid = await this.customerService.addToCart(query);
+    if (isValid) {
+      session.pid = query.id;
+      console.log(session.pid);
+    } else {
+      return { message: 'Invalid Product' };
+    }
+  }
   @Get('/cart')
-  viewCart() {}
+  viewCart(@Session() session) {
+    console.log(session);
+    return this.customerService.viewCart(session);
+  }
 
   @Post('/create-order/:id')
   createOrder(@Param('id', ParseIntPipe) id: number, @Body(ValidationPipe) createOrderDto: CreateOrderDto) {
@@ -112,5 +132,34 @@ export class CustomerController {
   @Get('/myReviews/:id')
   viewMyReviews(@Param('id', ParseIntPipe) id: number) {
     return this.customerService.viewMyReviews(id);
+  }
+
+  @Post('/add-payment/:id')
+  addPayment(@Param('id', ParseIntPipe) id: number, @Body(ValidationPipe) customerAddPaymentDto: CustomerAddPaymentDto) {
+    return this.customerService.addPayment(id, customerAddPaymentDto);
+  }
+
+  @Get('/my-payment/:id')
+  viewMyPayment(@Param('id', ParseIntPipe) id: number) {
+    return this.customerService.viewMyPayment(id);
+  }
+
+  @Post('/login')
+  async login(@Session() session, @Body(ValidationPipe) customerLoginDto: CustomerLoginDto) {
+    const isValid = await this.customerService.login(customerLoginDto);
+    if (isValid) {
+      session.email = customerLoginDto.C_Email;
+      return { message: 'Login Success' };
+    } else {
+      return { message: 'Invalid credentials' };
+    }
+  }
+  @Get('/logout')
+  logout(@Session() session) {
+    if (session.destroy()) {
+      return { message: 'You are logged out' };
+    } else {
+      throw new UnauthorizedException('Invalid actions');
+    }
   }
 }

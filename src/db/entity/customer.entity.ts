@@ -12,9 +12,6 @@ export class Customer {
   C_Uuid: string;
 
   @Column({ nullable: true })
-  C_Verified: boolean;
-
-  @Column({ nullable: true })
   C_Photo: string;
 
   @Column()
@@ -37,6 +34,12 @@ export class Customer {
 
   @Column()
   C_Password: string;
+
+  @Column()
+  Role: string;
+
+  @Column({ nullable: true })
+  C_Verified: boolean;
 
   @Column()
   C_CreatedAt: Date;

@@ -1,8 +1,9 @@
 import { MailerService } from '@nestjs-modules/mailer';
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Customer } from 'src/db/entity/customer.entity';
+import { CustomerPayment } from 'src/db/entity/customerPayment.entity';
 import { Order } from 'src/db/entity/order.entity';
 import { OrderDetail } from 'src/db/entity/orderDetail.entity';
 import { Payment } from 'src/db/entity/payment.entity';
@@ -18,6 +19,7 @@ export class CustomerService {
     @InjectRepository(Order) private orderRepo: Repository<Order>,
     @InjectRepository(OrderDetail) private orderDetailRepo: Repository<OrderDetail>,
     @InjectRepository(Payment) private paymentRepo: Repository<Payment>,
+    @InjectRepository(CustomerPayment) private customerPaymentRepo: Repository<CustomerPayment>,
     @InjectRepository(Review) private reviewRepo: Repository<Review>,
     private mailerService: MailerService,
   ) {}
@@ -25,7 +27,7 @@ export class CustomerService {
   async registerAccount(customerRegisterDto) {
     const dbCustomer = await this.customerRepo.findOneBy({ C_Email: customerRegisterDto.C_Email });
     if (dbCustomer) {
-      return 'Email already exist';
+      return { message: 'Email already exists' };
     } else {
       const salt = await bcrypt.genSalt();
       const hashedPassword = await bcrypt.hash(customerRegisterDto.C_Password, salt);
@@ -68,7 +70,7 @@ http://localhost:3000/customer/verify-email/?uid=${customerRegisterDto.C_Uuid}`,
   }
   // Customer Change Password
   async changePassword(id, customerChangePassDto) {
-    const dbPassword = await (await this.customerRepo.findOneBy({ C_Id: id })).C_Password;
+    const dbPassword = (await this.customerRepo.findOneBy({ C_Id: id })).C_Password;
     const isMatch = await bcrypt.compare(customerChangePassDto.C_CurrentPassword, dbPassword);
     if (isMatch) {
       const salt = await bcrypt.genSalt();
@@ -76,7 +78,7 @@ http://localhost:3000/customer/verify-email/?uid=${customerRegisterDto.C_Uuid}`,
       customerChangePassDto.C_NewPassword = hashedPassword;
       return await this.customerRepo.update({ C_Id: id }, { C_Password: customerChangePassDto.C_NewPassword });
     } else {
-      return 'Password not match';
+      return { message: 'Invalid Password' };
     }
   }
   // Customer Forgot Password
@@ -84,13 +86,14 @@ http://localhost:3000/customer/verify-email/?uid=${customerRegisterDto.C_Uuid}`,
     const validCustomer = await this.customerRepo.findOneBy({ C_Email: customerForgotPassDto.C_Email });
     if (validCustomer) {
       const otp = Math.round(100000 + Math.random() * 900000);
-      return await this.mailerService.sendMail({
+      await this.mailerService.sendMail({
         to: customerForgotPassDto.C_Email,
         subject: 'OTP for Forgot Password',
         text: `Hi, ${validCustomer.C_Name}. Your OTP is ${otp}`,
       });
+      return otp;
     } else {
-      return 'Email not found';
+      return { message: 'Invalid Email' };
     }
   }
 
@@ -105,8 +108,20 @@ http://localhost:3000/customer/verify-email/?uid=${customerRegisterDto.C_Uuid}`,
   searchProduct(query) {
     return this.productRepo.findBy({ P_Name: query.k });
   }
+
+  // Customer Add to Cart
+  async addToCart(query) {
+    const validProduct = await this.productRepo.findOneBy({ P_Id: query.id });
+    if (validProduct) {
+      return 1;
+    } else {
+      return 0;
+    }
+  }
   // Customer View Cart
-  async viewCart() {}
+  async viewCart(session) {
+    return await this.productRepo.findBy({ P_Id: session.pid });
+  }
 
   // Customer can create order
   async createOrder(id, createOrderDto) {
@@ -151,4 +166,22 @@ http://localhost:3000/customer/verify-email/?uid=${customerRegisterDto.C_Uuid}`,
 
   // Customer can view all own reviews
   async viewMyReviews(id: any) {}
+
+  addPayment(id, customerAddPaymentDto) {
+    customerAddPaymentDto.CP_ExpiryDate = new Date();
+    customerAddPaymentDto.customer = id;
+    return this.customerPaymentRepo.save(customerAddPaymentDto);
+  }
+  viewMyPayment(id) {
+    return this.customerPaymentRepo.findBy({ customer: id });
+  }
+
+  async login(customerLoginDto) {
+    const isValidCustomer = await await this.customerRepo.findOneBy({ C_Email: customerLoginDto.C_Email });
+    if (isValidCustomer && (await bcrypt.compare(customerLoginDto.C_Password, isValidCustomer.C_Password))) {
+      return 1;
+    } else {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+  }
 }

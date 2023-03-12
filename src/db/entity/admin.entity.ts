@@ -34,6 +34,12 @@ export class Admin {
   A_Password: string;
 
   @Column()
+  Role: string;
+
+  @Column({ nullable: true })
+  A_Verified: boolean;
+
+  @Column()
   A_CreatedAt: Date;
 
   @Column()
